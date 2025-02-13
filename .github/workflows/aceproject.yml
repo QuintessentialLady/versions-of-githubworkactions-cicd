@@ -12,10 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Run Tests
+      - name: Run Unit Tests
         run: |
-          echo "Running tests..."
-          # Add actual test commands here
+          echo "Running unit tests..."
+          # Add actual unit test commands here
 
       - name: Package application
         run: |
@@ -26,19 +26,52 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: eu-west-2
           
       - run: |
-          aws s3 cp my-app.zip s3://my-app-deployments/
+          aws s3 cp my-app.zip s3://tayoacebucket/
+
+  cypress:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start application
+        run: npm start &
+      
+      - name: Run Cypress Tests
+        uses: cypress-io/github-action@v5
+        with:
+          start: npm start
+          wait-on: "http://localhost:3000" # Ensures app is running before tests
+          browser: chrome
+
+      - name: Upload Cypress Test Results (if failed)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cypress-results
+          path: cypress/screenshots
 
   deploy:
-    needs: build
+    needs: cypress  # Ensures Cypress tests pass before deploying
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2 via CodeDeploy
         run: |
           aws deploy create-deployment \
-            --application-name MyCodeDeployApp \
-            --deployment-group-name MyDeploymentGroup \
+            --application-name TTcode \
+            --deployment-group-name Tayoaceproduction \
             --s3-location bucket=my-app-deployments,key=my-app.zip,bundleType=zip
+
 
