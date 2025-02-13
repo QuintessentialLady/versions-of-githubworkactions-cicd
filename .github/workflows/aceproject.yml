@@ -1,17 +1,44 @@
-name: Super-Linter
+name: CI/CD Pipeline
 
-on: push
+on:
+  push:
+    branches:
+      - main
 
 jobs:
-  super-lint:
-    name: Lint code base
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Run Super-Linter
-        uses: github/super-linter@v4
-        env:
-          DEFAULT_BRANCH: main
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run Tests
+        run: |
+          echo "Running tests..."
+          # Add actual test commands here
+
+      - name: Package application
+        run: |
+          zip -r my-app.zip . -x "*.git*"
+
+      - name: Upload to S3
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - run: |
+          aws s3 cp my-app.zip s3://my-app-deployments/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2 via CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name MyCodeDeployApp \
+            --deployment-group-name MyDeploymentGroup \
+            --s3-location bucket=my-app-deployments,key=my-app.zip,bundleType=zip
+
