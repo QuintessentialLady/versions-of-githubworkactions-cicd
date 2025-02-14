@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: Build & Package
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,36 +25,36 @@ jobs:
           aws-region: eu-west-2
 
       - name: Upload to S3
-        run: |
-          aws s3 cp my-app.zip s3://tayoacebucket/
+        run: aws s3 cp my-app.zip s3://tayoacebucket/
 
-
+  test:
+    name: Run Tests
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: Use Node.js ${{ matrix.node-version }}
-          cache: 'npm' 
+          node-version: '18'  # Set a specific version for stability
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
-        
-      - name: Use MongoDB
+        run: npm ci  # Faster and more reliable than npm install
+
+      - name: Start MongoDB
         uses: supercharge/mongodb-github-action@1.12.0
         with:
-          mongodb-version: ${{ matrix.node-version }}
-          cache: 'npm' 
+          mongodb-version: '5.0'  # Define a stable version
 
-       - name: Run Tests
+      - name: Run Tests
         run: npm test
 
   deploy:
-    needs: create deployment
+    name: Deploy to EC2
+    needs: [build, test]
     runs-on: ubuntu-latest
     steps:
       - name: Configure AWS Credentials
@@ -63,11 +64,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRETDEPLOY_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Deploy to EC2 via CodeDeploy
+      - name: Deploy via AWS CodeDeploy
         run: |
           aws deploy create-deployment \
             --application-name TTcode \
             --deployment-group-name Tayoaceproduction \
             --s3-location bucket=tayoacebucket,key=my-app.zip,bundleType=zip
-
-
