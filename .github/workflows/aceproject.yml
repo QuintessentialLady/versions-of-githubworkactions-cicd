@@ -12,23 +12,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Run Unit Tests
-        run: |
-          echo "Running unit tests..."
-          # Add actual unit test commands here
-
       - name: Package application
         run: |
           zip -r my-app.zip . -x "*.git*"
 
-      - name: Upload to S3
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-          
-      - run: |
+
+      - name: Upload to S3
+        run: |
           aws s3 cp my-app.zip s3://tayoacebucket/
 
   cypress:
@@ -46,9 +42,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Start application
-        run: npm start &
-      
       - name: Run Cypress Tests
         uses: cypress-io/github-action@v5
         with:
@@ -67,11 +60,18 @@ jobs:
     needs: cypress  # Ensures Cypress tests pass before deploying
     runs-on: ubuntu-latest
     steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
       - name: Deploy to EC2 via CodeDeploy
         run: |
           aws deploy create-deployment \
             --application-name TTcode \
             --deployment-group-name Tayoaceproduction \
-            --s3-location bucket=my-app-deployments,key=my-app.zip,bundleType=zip
+            --s3-location bucket=tayoacebucket,key=my-app.zip,bundleType=zip
 
 
